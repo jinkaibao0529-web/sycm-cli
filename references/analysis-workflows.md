@@ -163,7 +163,7 @@
 
 - 需要安装 `alimama-cli` Skill。依次查找 `~/.claude/skills/alimama-cli/scripts/alimama.sh`、`~/.codex/skills/alimama-cli/scripts/alimama.sh` 和同级 Skill 目录；都不存在则停止并说明依赖缺失。
 - 先运行 `alimama.sh doctor`。未找到登录态时停止，不使用 sycm 的广告引导金额伪造计划 ROI。
-- 只调用查询命令。不调用 `promo-off`，不停投、调价或改预算。
+- 只调用查询命令。不停投、调价或改预算。
 
 ### 取数
 

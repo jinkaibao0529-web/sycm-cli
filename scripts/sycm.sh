@@ -1,5 +1,5 @@
 #!/bin/bash
-# sycm-cli 入口（macOS / Linux / Windows Git Bash）
+# taobao-cli 入口（macOS / Linux / Windows Git Bash）
 # 用法：scripts/sycm.sh <子命令> [参数...]   例：scripts/sycm.sh doctor
 set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

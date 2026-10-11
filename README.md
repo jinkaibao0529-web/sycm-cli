@@ -36,7 +36,7 @@ sycm-cli 是一款读取生意参谋店铺数据的工具，可帮助你和 AI �
 |---|---|---|
 | 取数桥插件 | 不需要 | 必须安装 |
 | 怎么读取数据 | 直接读取 Chrome 中的登录状态。读不到时（例如刚重启过 Chrome），如果装了插件，自动改用插件 | 只通过插件，在你已登录的 Chrome 中读取 |
-| 多店铺登录存档 | 支持 | 不支持，换店铺请在 Chrome 中换账号登录 |
+| 多个账号切换 | 支持（在插件里切换） | 支持（在插件里切换） |
 | 命令 | `scripts/sycm.sh` | `scripts\sycm.cmd` |
 
 两个系统都一样：在 Chrome 中登录要用的后台。工具读不到 AI 助手自带浏览器（例如 Codex 内置浏览器）里的登录，取数时也不要让 AI 助手改用它。
@@ -76,23 +76,13 @@ sycm-cli 是一款读取生意参谋店铺数据的工具，可帮助你和 AI �
 | 客服 | `fetch-recent` `list` `detail` `reception-list` `sale-cs-list` `inquiry-loss-list` `slow-rsps-list` `evaluation-list` |
 | 直播与预热 | `live-guide-overview` `live-guide-trend` `preheating-metrics` |
 | 导出 Excel | `excel` `excel-tasks` |
-| 工具 | `doctor` `menu` `api` `export-profile` `profiles` |
+| 工具 | `doctor` `menu` `api` |
 
 字段的中文名和口径统一取自 `tb/platforms/sycm/fields.json`。字典中没有的字段会原样输出字段码，不推测中文名。
 
 ### 管理多个店铺
 
-此功能仅支持 Mac。在 Chrome 中登录某个店铺后，可以把该店铺的登录状态保存下来，之后用 `--store` 指定店铺：
-
-```bash
-scripts/sycm.sh export-profile A店      # 在 Chrome 登录 A 店后，把登录存下来
-scripts/sycm.sh profiles                # 看存了哪些
-scripts/sycm.sh --store A店 home-overview
-```
-
-**重要**：保存的登录状态位于本机用户目录的 `.taobao-cli/profiles/` 中，等同于账号密码，请勿复制给他人。
-
-**注意**：Windows 无法读取 Chrome 的登录状态，因此不能保存登录状态。如需切换店铺，请在 Chrome 中退出当前店铺，再登录另一个店铺。
+在取数桥插件里存多个账号，随时切换，Mac 和 Windows 都支持：点插件图标，给现在登录的账号起个名字保存；点「登录新账号」登录另一个店，再保存；之后点「切换」就换过去。也可以跟 AI 助手说「换成某某账号」，或运行 `scripts/tb.sh account use <名字>`。不要点网页上的「退出」，退出会让存下的账号失效。
 
 ## 安全与风控
 
@@ -115,11 +105,14 @@ scripts/sycm.sh --store A店 home-overview
 | 提示触发风控（退出码 3） | 工具会先停止运行。请在浏览器中正常打开生意参谋，按提示完成验证，然后再次运行 |
 | 返回 0 条，但确定有数据 | 请检查日期。很多命令默认查询昨天的数据 |
 
-## 相关工具
+## 其他工具
 
-同一作者还提供万相台、千牛、达摩盘、1688 订单统计、竞品评价洞察、广告诊断报告等店铺数据工具。这些工具共用同一个取数桥插件，安装一次即可。
+这个包只带了生意参谋。同一套工具还有达摩盘、千牛、万相台、1688、竞品评价，要用的时候打开就行，会自动下载装上：
 
-介绍和获取方式：<https://rakel.top/tools/>
+- 看全部工具：`scripts/tb.sh modules`（Windows：`scripts\tb.cmd modules`）
+- 装上并打开万相台：`scripts/tb.sh modules enable alimama`，然后完全退出 AI 助手再打开
+- 也可以直接跟 AI 助手说「打开万相台」，它会先问你，再帮你装上
+- 下载不了（没网、公司网络拦了）：按提示在浏览器里下载模块包，再运行 `scripts/tb.sh modules install <模块> <文件>`
 
 ## 协议
 
@@ -128,7 +121,7 @@ MIT。仅供店铺经营者查询自家数据，请遵守平台规则。
 
 ## 联系作者
 
-有想法、有需求，欢迎加微信找我，并注明来意。想要帮你装好、按你的需求定制，或者想用千牛、达摩盘等更多工具，也可以直接问。
+有想法、有需求，欢迎加微信找我，并注明来意。想要帮你装好、按你的需求定制，也可以直接问。
 
 - 微信：扫下方二维码加好友
 - X / Twitter：[@Rakel076](https://x.com/Rakel076)
@@ -143,10 +136,4 @@ MIT。仅供店铺经营者查询自家数据，请遵守平台规则。
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=rakei076%2Fsycm-cli%2Crakei076%2Falimama-cli&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=rakei076/sycm-cli%2Crakei076/alimama-cli&type=date&theme=dark&legend=top-left&sealed_token=1C-YpKaGC2R31lIvkjjJxJ5-Nic1CJuUI18K8ttteBZoy0ktTZ7ZtH4Das9FbfclXR8d63D7McC7DbIABoPlfFEPPVjrG29Nvo56crqx6KT53wxcUbu8e8qMMgoYWjZC7fTkPi4X5H4u7liA8fp2zUmmQ-c4CABvtjksi6k69cEhKOTppTM48U7VLkac" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=rakei076/sycm-cli%2Crakei076/alimama-cli&type=date&legend=top-left&sealed_token=1C-YpKaGC2R31lIvkjjJxJ5-Nic1CJuUI18K8ttteBZoy0ktTZ7ZtH4Das9FbfclXR8d63D7McC7DbIABoPlfFEPPVjrG29Nvo56crqx6KT53wxcUbu8e8qMMgoYWjZC7fTkPi4X5H4u7liA8fp2zUmmQ-c4CABvtjksi6k69cEhKOTppTM48U7VLkac" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=rakei076/sycm-cli%2Crakei076/alimama-cli&type=date&legend=top-left&sealed_token=1C-YpKaGC2R31lIvkjjJxJ5-Nic1CJuUI18K8ttteBZoy0ktTZ7ZtH4Das9FbfclXR8d63D7McC7DbIABoPlfFEPPVjrG29Nvo56crqx6KT53wxcUbu8e8qMMgoYWjZC7fTkPi4X5H4u7liA8fp2zUmmQ-c4CABvtjksi6k69cEhKOTppTM48U7VLkac" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/svg?repos=rakei076/sycm-cli&type=Date)](https://www.star-history.com/#rakei076/sycm-cli&Date)

@@ -19,8 +19,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ...core import profiles, transport
-from ...core.auth import NotLoggedIn, load_cookies
+from ...core import transport
+from ...core.auth import NotLoggedIn
 from ...core.bridge import BridgeRefused
 from ...core.client import Client
 from ...core.errors import TbError
@@ -61,14 +61,10 @@ class ClientCookies:
         return len(self.client.cookies)
 
 
-# 由 main() 依据 --store 设置；非空时改读保存的 profile 而不是实时浏览器。
-_ACTIVE_STORE: str | None = None
 _CLIENT: Client | None = None
 
 
 def make_client() -> Client:
-    if _ACTIVE_STORE:   # 保存的登录态：只用命令行读 cookie 的方式
-        return Client(SYCM, cookies=profiles.load_profile(SYCM, _ACTIVE_STORE))
     return transport.make_client(SYCM)
 
 
@@ -1582,23 +1578,12 @@ def cmd_fetch_recent(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="tb sycm", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    # 顶层 --store：用保存的登录态而不是实时 Chrome。放在子命令前，如
-    # tb sycm --store 示例主店 sale-shop-list
     p.add_argument("--mode", choices=["auto", "extension", "cookies"],
                    help="取数方式：extension=浏览器插件；cookies=读浏览器登录；默认 auto")
-    p.add_argument("--store", metavar="店名",
-                   help="用 export-profile 保存的登录态（放在子命令前），而不是实时 Chrome")
     sp = p.add_subparsers(dest="cmd", required=True)
 
     d = sp.add_parser("doctor", help="检查 cookie / 登录态")
     d.set_defaults(func=cmd_doctor)
-
-    ep_ = sp.add_parser("export-profile", help="把当前 Chrome 登录态存成命名 profile（多店铺）")
-    ep_.add_argument("name", help="店名 / profile 名，如 示例主店")
-    ep_.set_defaults(func=cmd_export_profile)
-
-    pf = sp.add_parser("profiles", help="列出已保存的登录态 profile")
-    pf.set_defaults(func=cmd_profiles)
 
     today = date.today().isoformat()
     yesterday = (date.today() - timedelta(days=1)).isoformat()
@@ -1768,27 +1753,6 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def cmd_export_profile(args: argparse.Namespace) -> None:
-    """把当前浏览器的淘宝登录态存成命名 profile，供 --store 复用。"""
-    cookies = load_cookies(SYCM)   # 不受 --store 影响，始终读实时浏览器
-    path = profiles.save_profile(args.name, cookies)
-    print(f"✓ 已保存登录态 '{args.name}' → {path}")
-    print(f"  含 {len(cookies)} 个 cookie。用法：tb sycm --store {args.name} <命令>")
-    print("  该文件含长效登录凭据(权限 0600)；勿提交 git、勿外发。")
-
-
-def cmd_profiles(args: argparse.Namespace) -> None:
-    """列出已保存的登录态 profile。"""
-    saved = profiles.list_profiles()
-    if not saved:
-        print(f"（暂无 profile。目录：{profiles.PROFILE_DIR}）")
-        print("保存：在浏览器登录某店后跑 tb sycm export-profile <店名>")
-        return
-    print(f"已保存 {len(saved)} 个登录态（{profiles.PROFILE_DIR}）：")
-    for p in saved:
-        print(f"  - {p['store']:<16} 保存于 {p.get('saved_at') or '?'}")
-
-
 def _force_utf8() -> None:
     """中文 Windows 的 cmd/SSH 常为 GBK；帮助文本里的 emoji 不应让 CLI 崩溃。统一用 UTF-8。"""
     for stream in (sys.stdout, sys.stderr):
@@ -1799,10 +1763,9 @@ def _force_utf8() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    global _ACTIVE_STORE, _CLIENT
+    global _CLIENT
     _force_utf8()
     args = build_parser().parse_args(argv)
-    _ACTIVE_STORE = getattr(args, "store", None)
     _CLIENT = None
     if getattr(args, "mode", None):
         os.environ["SYCM_MODE"] = args.mode
