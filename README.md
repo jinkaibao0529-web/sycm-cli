@@ -107,7 +107,7 @@ sycm-cli 是一款读取生意参谋店铺数据的工具，可帮助你和 AI �
 
 ## 其他工具
 
-这个包只带了生意参谋。同一套工具还有达摩盘、千牛、万相台、1688、竞品评价，要用的时候打开就行，会自动下载装上：
+这个包只带了生意参谋。同一套工具还有万相台，要用的时候打开就行，会自动下载装上：
 
 - 看全部工具：`scripts/tb.sh modules`（Windows：`scripts\tb.cmd modules`）
 - 装上并打开万相台：`scripts/tb.sh modules enable alimama`，然后完全退出 AI 助手再打开
