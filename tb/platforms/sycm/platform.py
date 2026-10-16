@@ -26,4 +26,5 @@ SYCM = Platform(
     warn_after=200,
     readable_cookies=("_tb_token_",),   # 接口参数里要带的防 CSRF 令牌（命令行自己拿不到时向浏览器要）
     check_payload=session.check_payload,
+    shop_of=session.shop_of,
 )

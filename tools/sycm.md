@@ -97,6 +97,8 @@ scripts/sycm.sh fetch-recent --date YYYY-MM-DD --limit 10 --out chats.json
 
 ## 分析模块
 
+**本公司的分析要求优先**：用户公司自己的报告要求（月报、周报、汇报格式等）放在整台电脑共用的「分析要求」文件夹（`scripts/tb.sh guide --where` 给出位置；Mac `~/.taobao-cli/分析要求/`，Windows `%LOCALAPPDATA%\taobao-cli\分析要求\`）。做报告前先用 guide 工具（终端 `scripts/tb.sh guide`）看有没有对应的公司要求，有就照它做，没有才用下面的通用分析方法；同名时以公司的为准。用户要新增或修改公司要求时，写成 .md 放进这个文件夹，不要改工具里的 `references/` 和本文件（工具升级会冲掉）。
+
 当用户要求日体检、周复盘、测款、退货归因、广告 ROI 或客服质检时，先读完 [references/analysis-workflows.md](../references/analysis-workflows.md) 中对应模块的全部指令，再严格按其中的口径、输出合同和停止条件执行。
 
 ## 生成单品诊断报告
@@ -368,7 +370,7 @@ scripts/sycm.sh home-overview --date YYYY-MM-DD --raw     # 拿全 self/rivalAvg
 
 ### 多个店铺
 
-在取数桥插件里存多个账号，随时切换，Mac 和 Windows 都支持：点插件图标，给现在登录的账号起个名字保存；点「登录新账号」登录另一个店，再保存；之后点「切换」就换过去。也可以跟 AI 助手说「换成某某账号」，或运行 `scripts/tb.sh account use <名字>`。不要点网页上的「退出」，退出会让存下的账号失效。
+在取数桥插件里存多个账号，随时切换，Mac 和 Windows 都支持：点插件图标，给现在登录的账号起个名字保存；点「登录新账号」登录另一个店，再保存；之后点「切换」就换过去。也可以跟 AI 助手说「用某某账号的数据」。在终端里取某个账号的数据，运行 `scripts/tb.sh --account <名字> sycm <命令>`，先换号再取数，一步做完。不要点网页上的「退出」，退出会让存下的账号失效。
 
 ### 导出 Excel
 
@@ -548,5 +550,8 @@ scripts/sycm.sh fetch-recent --date $DATE --limit 10 --out /tmp/sycm-$DATE.json
 
 - **接口覆盖**：已登记的命令见上文的命令参考；没有登记的生意参谋页面，可以用 `api` 命令只读探测。
 - **消息分页**：详情接口每页最多 10 条消息，CLI 会自动翻页。
-- **列表分页**：列表 `pageSize` 实测最大约 20，过大时会被服务端截断。
+- **列表分页**：`--limit 100` 实测可用（2026-10-14 整月客服明细按 100 一页翻），页数约等于 `count ÷ 100` 向上取整。
+- **一个登录能看几家店**：生意参谋会在请求之间跳到同一登录能看的另一家店（店名旁有「主店 ▾」的账号，客服类列表尤其常见）。命令会认店：回包里能看出店铺编号的（首页概览的 userId、客服类列表每行的 sellerId），跳了就自动重发，重发几次还不对就报错、不交出数据；报错里给出两家店的编号，要看另一家就加 `--shop <店铺编号>`（会记住）。第一次给某个账号取数时，终端会说「已记下」这个账号的店铺编号。
+- **字段值的外层**：`--raw` 里很多字段（包括 `itemId`）是 `{value: …}` 包一层，有的又是裸值；自己写脚本处理时先统一拆开，不然 ID 会变成一串字典文字。
+- **全站推广花费**：读 `admCostFamtQzt`；页面上同名的 `adStrategyAmt` 实测一直是 0。
 - **Chrome 资料**：Mac 不装插件时读取 Chrome Default 资料的 cookie，登录在其他资料中时设置 `SYCM_CHROME_PROFILE="Profile 1"`；Windows 只通过插件取数。

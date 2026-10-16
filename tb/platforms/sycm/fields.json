@@ -332,14 +332,14 @@
     "note": "推广组"
   },
   "adStrategyAmt": {
-    "cn": "全站推广花费",
+    "cn": "全站推广花费（旧字段）",
     "scope": [
       "home-table",
       "home-overview"
     ],
     "fmt": "amt",
-    "status": "verified",
-    "note": "推广组"
+    "status": "candidate",
+    "note": "推广组；2026-10-14 客户店铺实测一直是 0，全站推广花费改读 admCostFamtQzt"
   },
   "tkExpendAmt": {
     "cn": "淘宝客佣金",
@@ -352,14 +352,14 @@
     "note": "推广组"
   },
   "admCostFamtQzt": {
-    "cn": "admCostFamtQzt",
+    "cn": "全站推广花费",
     "scope": [
       "home-table",
       "home-overview"
     ],
-    "fmt": "num",
-    "status": "candidate",
-    "note": "中文名未破译"
+    "fmt": "amt",
+    "status": "verified",
+    "note": "推广组；2026-10-14 客户店铺实测和页面对得上"
   },
   "allContentSupplyScale": {
     "cn": "allContentSupplyScale",

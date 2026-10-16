@@ -1275,7 +1275,7 @@ HOME_TABLE_ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("推广",   "关键词推广费",      "p4pExpendAmt",      "amt"),
     ("推广",   "精准人群推广费",    "cubeAmt",           "amt"),
     ("推广",   "智能场景花费",      "feedCharge",        "amt"),
-    ("推广",   "全站推广花费",      "adStrategyAmt",     "amt"),
+    ("推广",   "全站推广花费",      "admCostFamtQzt",    "amt"),   # adStrategyAmt 实测一直是 0（10/14 客户店铺）
     ("推广",   "淘宝客佣金",        "tkExpendAmt",       "amt"),
 )
 
