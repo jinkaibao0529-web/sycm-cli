@@ -11,6 +11,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Packaging failed' }
     Copy-Item -LiteralPath extension -Destination dist/MarketWorkbench -Recurse -Force
     Copy-Item -LiteralPath docs/本地工具使用说明.md -Destination dist/MarketWorkbench -Force
+    Copy-Item -LiteralPath docs/使用说明.html -Destination dist/MarketWorkbench -Force
+    Copy-Item -LiteralPath docs/images -Destination dist/MarketWorkbench -Recurse -Force
     Copy-Item -LiteralPath LICENSE -Destination dist/MarketWorkbench -Force
     Copy-Item -LiteralPath THIRD_PARTY_NOTICES.md -Destination dist/MarketWorkbench -Force
     & .venv/Scripts/python.exe scripts/collect_market_licenses.py dist/MarketWorkbench

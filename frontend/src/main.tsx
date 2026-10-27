@@ -398,7 +398,7 @@ function App() {
                 <ArrowUpRight size={14} />
               </button>
               <div className="version">
-                基于 sycm-cli<span>v0.2.1</span>
+                基于 sycm-cli<span>v0.2.2</span>
               </div>
             </div>
           </aside>

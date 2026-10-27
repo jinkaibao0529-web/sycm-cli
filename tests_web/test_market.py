@@ -75,6 +75,7 @@ def test_excel_text_safety_and_incomplete_provenance(client):
     task_id=seed('cancelled')
     response=client.get(f'/api/tasks/{task_id}/export')
     assert response.status_code==200
+    assert 'filename*=UTF-8' in response.headers['content-disposition']
     wb=load_workbook(io.BytesIO(response.content))
     try:
         assert wb.sheetnames==['商品榜单','采集说明']
@@ -88,6 +89,19 @@ def test_excel_text_safety_and_incomplete_provenance(client):
         assert '店铺类型' in notes['未返回的字段']
     finally:
         wb.close()
+
+
+def test_export_filename_uses_task_snapshot_after_source_changes(client):
+    from urllib.parse import unquote
+    task_id=seed()
+    with connect() as c:
+        profile=json.loads(c.execute('SELECT profile FROM tasks WHERE id=?',(task_id,)).fetchone()[0])
+        profile['params'].update(dateType='day',dateRange='2026-10-15|2026-10-15')
+        c.execute('UPDATE tasks SET profile=? WHERE id=?',(json.dumps(profile),task_id))
+    client.app.state.coordinator.profiles={'other':{'params':{'dateType':'month','dateRange':'2026-09-01|2026-09-30'}}}
+    response=client.get(f'/api/tasks/{task_id}/export')
+    assert response.status_code==200
+    assert unquote(response.headers['content-disposition'].split("filename*=UTF-8''")[1])=='市场商品榜_日_2026-10-15.xlsx'
 
 
 def test_native_hyperlink_relationships_and_empty_links(client):

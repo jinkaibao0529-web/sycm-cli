@@ -157,7 +157,7 @@ def create_app():
 
     @app.get('/api/session')
     def session():
-        return {'token': csrf, 'version': '0.2.1', 'local_only': True}
+        return {'token': csrf, 'version': '0.2.2', 'local_only': True}
 
     @app.get('/api/health')
     def health():
@@ -230,11 +230,9 @@ def create_app():
             raise HTTPException(409, '任务结束且有商品数据后即可导出')
         from .xlsx import workbook
         content = workbook(t)
-        period = t['profile'].get('period') or {}
-        mode = period.get('mode') or t['profile'].get('params', {}).get('dateType', 'captured')
-        name = f'market_{mode}_{t["created_at"][:10]}_{task_id[:6]}.xlsx'
+        from .export_name import content_disposition
         return StreamingResponse(io.BytesIO(content), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                 headers={'Content-Disposition': f'attachment; filename="{name}"'})
+                                 headers={'Content-Disposition': content_disposition(t)})
 
     if (FRONTEND / 'assets').exists():
         app.mount('/assets', StaticFiles(directory=FRONTEND / 'assets'), name='assets')
