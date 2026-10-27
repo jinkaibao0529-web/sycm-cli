@@ -7,19 +7,23 @@ async function handleMarket(job) {
   if (!who.uid) return { id: job.id, error: '请先在 Chrome 登录生意参谋', who };
   try {
     const tabs = await chrome.tabs.query({ url: 'https://sycm.taobao.com/*' });
+    const cacheKey='market_profiles:'+who.uid;
+    const saved=(await chrome.storage.local.get(cacheKey))[cacheKey]||[];
     const results = [];
     const diagnostics = [];
     for (const tab of tabs) {
       if (tab.url?.endsWith('/robots.txt')) continue;
+      await chrome.scripting.executeScript({target:{tabId:tab.id},world:'MAIN',files:['market-observer.js']});
       const [result] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id }, world: 'MAIN', args: [job.market],
-        func: async command => {
+        target: { tabId: tab.id }, world: 'MAIN', args: [job.market,saved],
+        func: async (command,cached) => {
           const source = window.__sycmMarket;
+          if(source?.restore)source.restore(cached);
           const diag = {page:location.origin+location.pathname,observer:!!source,requests:performance.getEntriesByType('resource').map(x=>{try{return new URL(x.name)}catch{return null}}).filter(u=>u&&u.origin===location.origin&&/json|rank|market/.test(u.pathname)).slice(-25).map(u=>u.pathname),observations:source?.observations||[]};
           if (!source) return { profiles: [], diagnostic:diag };
           if (command.op === 'inspect') return { profiles: source.inspect(), diagnostic:diag };
           if (!source.captures.some(c => c.id === command.capture_id)) return null;
-          try { return await source.page(command.capture_id, command.page, command.signature); }
+          try { return await source.page(command.capture_id, command.page, command.signature,command.date_range); }
           catch (error) { return { error: error.message }; }
         },
       });
@@ -33,6 +37,12 @@ async function handleMarket(job) {
     }
     if (job.market.op === 'page') throw Error('未找到原市场榜单页面 请保持标签页打开并重新识别');
     const after = await loginNow();
+    if(who.uid===after.uid){
+      // Only metadata from inspect is persisted. No body, request URL or token value.
+      const merged=new Map(saved.map(p=>[p.signature,p]));
+      for(const p of results)merged.set(p.signature,p);
+      await chrome.storage.local.set({[cacheKey]:[...merged.values()].slice(-128)});
+    }
     return {
       id: job.id, who, ...(who.uid !== after.uid ? { whoAfter: after } : {}),
       market: { profiles: results, diagnostics, page_open: tabs.some(t => !t.url?.endsWith('/robots.txt')),

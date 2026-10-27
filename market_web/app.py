@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
 from .data import FIELDS, connect, get_task, init, now, recover, root, task_dict, update_task
 
@@ -34,6 +35,8 @@ def worker_command(*args):
 class TaskInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     profile_id: str = Field(min_length=1, max_length=100)
+    period_mode: Literal['realtime', 'recent7', 'recent30', 'day', 'week', 'month'] | None = None
+    anchor_date: str | None = Field(default=None, max_length=10)
 
 
 class Coordinator:
@@ -73,13 +76,21 @@ class Coordinator:
         finally:
             self.probing = False
 
-    def create(self, profile_id):
+    def create(self, profile_id, period_mode=None, anchor_date=None):
         with self.lock:
             if self.is_active() or self.probing:
                 raise HTTPException(409, '已有任务正在执行')
             profile = self.profiles.get(profile_id)
             if not profile:
                 raise HTTPException(422, '来源尚未识别 请先检查浏览器连接')
+            if anchor_date and not period_mode:
+                raise HTTPException(422, '选择日期时必须指定时间入口')
+            if period_mode:
+                from .periods import select
+                try:
+                    profile = select(list(self.profiles.values()), profile, period_mode, anchor_date)
+                except ValueError as error:
+                    raise HTTPException(422, str(error)) from None
             task_id = uuid.uuid4().hex
             with connect() as c:
                 c.execute('INSERT INTO tasks(id,status,created_at,updated_at,profile,total) VALUES (?,?,?,?,?,?)',
@@ -139,7 +150,7 @@ def create_app():
 
     @app.get('/api/session')
     def session():
-        return {'token': csrf, 'version': '0.1.0', 'local_only': True}
+        return {'token': csrf, 'version': '0.2.0', 'local_only': True}
 
     @app.get('/api/health')
     def health():
@@ -149,6 +160,14 @@ def create_app():
     def connection():
         return coordinator.connection
 
+    @app.get('/api/periods')
+    def periods(profile_id: str):
+        from .periods import catalog
+        base = coordinator.profiles.get(profile_id)
+        if not base:
+            raise HTTPException(422, '来源尚未识别 请先连接浏览器')
+        return {'periods': catalog(list(coordinator.profiles.values()), base)}
+
     @app.post('/api/connection/check', status_code=202)
     def check():
         coordinator.launch_probe()
@@ -156,7 +175,7 @@ def create_app():
 
     @app.get('/api/setup')
     def setup():
-        return {'extension_path': str(EXTENSION), 'extension_version': '0.9.0',
+        return {'extension_path': str(EXTENSION), 'extension_version': '1.0.0',
                 'platform_url': 'https://sycm.taobao.com/', 'steps': [
                     '在 Chrome 扩展程序页开启开发者模式', '加载本工具附带的 extension/unpacked 文件夹',
                     '登录生意参谋 打开市场排行的商品页', '刷新页面并翻页一次 然后点击识别榜单']}
@@ -169,7 +188,7 @@ def create_app():
 
     @app.post('/api/tasks', status_code=201)
     def create_task(data: TaskInput):
-        return coordinator.create(data.profile_id)
+        return coordinator.create(data.profile_id, data.period_mode, data.anchor_date)
 
     @app.get('/api/tasks/{task_id}')
     def task(task_id: str):
@@ -204,7 +223,9 @@ def create_app():
             raise HTTPException(409, '任务结束且有商品数据后即可导出')
         from .xlsx import workbook
         content = workbook(t)
-        name = f'market_{t["created_at"][:10]}_{task_id[:6]}.xlsx'
+        period = t['profile'].get('period') or {}
+        mode = period.get('mode') or t['profile'].get('params', {}).get('dateType', 'captured')
+        name = f'market_{mode}_{t["created_at"][:10]}_{task_id[:6]}.xlsx'
         return StreamingResponse(io.BytesIO(content), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                  headers={'Content-Disposition': f'attachment; filename="{name}"'})
 

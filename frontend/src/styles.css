@@ -15,6 +15,109 @@
   --danger: #b32631;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
+.period-section {
+  margin: 18px 20px 0;
+  padding: 14px 0 15px;
+  border-bottom: 1px solid var(--border);
+}
+.period-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 34px;
+  flex-wrap: wrap;
+}
+.period-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #f4f6fa;
+  border-radius: 7px;
+  padding: 3px;
+}
+.period-tabs button {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: 0;
+  padding: 8px 13px;
+  border-radius: 5px;
+  color: #5b6a81;
+  font-size: 12px;
+  min-height: 31px;
+}
+.period-tabs button:hover:not(:disabled) {
+  color: var(--blue);
+  transform: scale(1.025);
+}
+.period-tabs button.active {
+  color: var(--blue);
+  font-weight: 550;
+}
+.period-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(30, 49, 85, 0.08);
+}
+.period-calendar,
+.period-calendar label,
+.period-context {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.period-calendar label {
+  color: #5b6a81;
+}
+.period-calendar input {
+  border: 1px solid #dfe5ef;
+  border-radius: 5px;
+  color: #44536c;
+  padding: 6px 8px;
+  min-height: 32px;
+  background: #fff;
+  font-size: 12px;
+  max-width: 190px;
+}
+.period-context {
+  color: #5b6a81;
+  font-size: 11px;
+}
+.period-hint {
+  color: #5b6a81;
+  font-size: 10px;
+  line-height: 1.8;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .period-section {
+    margin-left: 15px;
+    margin-right: 15px;
+  }
+  .period-controls {
+    gap: 12px;
+  }
+  .period-tabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .period-tabs button {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+  .period-calendar {
+    margin-left: auto;
+  }
+  .period-hint {
+    font-size: 10px;
+  }
+}
 * {
   box-sizing: border-box;
 }
@@ -454,10 +557,9 @@ main {
 }
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(190px, 1.3fr) minmax(180px, 1fr) minmax(
-      175px,
-      0.9fr
-    ) auto;
+  grid-template-columns:
+    minmax(190px, 1.3fr) minmax(180px, 1fr) minmax(175px, 0.9fr)
+    auto;
   align-items: end;
   gap: 20px;
   padding: 22px 20px 18px;

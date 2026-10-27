@@ -90,6 +90,44 @@ def test_excel_text_safety_and_incomplete_provenance(client):
         wb.close()
 
 
+def test_native_hyperlink_relationships_and_empty_links(client):
+    from zipfile import ZipFile
+    task_id=seed()
+    with connect() as c:
+        r=json.loads(c.execute('SELECT data FROM items WHERE task_id=?',(task_id,)).fetchone()[0])
+        r['product_url']='https://item.taobao.com/item.htm?id=123&foo=bar'
+        r['image_url']='https://img.alicdn.com/example.jpg'
+        c.execute('UPDATE items SET data=? WHERE task_id=?',(json.dumps(r),task_id))
+    payload=client.get(f'/api/tasks/{task_id}/export').content
+    w=load_workbook(io.BytesIO(payload))
+    try:
+        for col,target in [('J',r['product_url']),('K',r['image_url'])]:
+            cell=w['商品榜单'][col+'2']
+            assert cell.value==target and cell.hyperlink.target==target
+            assert cell.font.underline=='single' and cell.data_type=='s'
+        source=next(row[1] for row in w['采集说明'].iter_rows() if row[0].value=='来源页面')
+        assert source.hyperlink.target=='https://sycm.taobao.com/mc/rank'
+        assert w['商品榜单']['D2'].data_type=='s'
+        assert w['商品榜单']['C2'].value=='12345678901234567890'
+    finally:w.close()
+    with ZipFile(io.BytesIO(payload)) as z:
+        assert b'TargetMode="External"' in z.read('xl/worksheets/_rels/sheet1.xml.rels')
+        # A formula-looking product title is still safe inline text, not a formula.
+        assert b'<f>' not in z.read('xl/worksheets/sheet1.xml')
+
+
+def test_blank_and_unsafe_addresses_are_not_hyperlinks(client):
+    from market_web.xlsx import link_cell
+    from openpyxl import Workbook
+    w=Workbook(write_only=True);s=w.create_sheet()
+    s.append([link_cell(s,None),link_cell(s,'javascript:alert(1)'),link_cell(s,'https://user:password@example.com/')])
+    b=io.BytesIO();w.save(b)
+    loaded=load_workbook(io.BytesIO(b.getvalue()))
+    try:
+        assert all(c.hyperlink is None for c in loaded.active[1])
+    finally:loaded.close()
+
+
 def test_mutation_guard_and_invalid_source(client):
     assert client.post('/api/tasks',json={'profile_id':'fake'}).status_code==403
     token=client.get('/api/session').json()['token']

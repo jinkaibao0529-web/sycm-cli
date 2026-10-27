@@ -19,6 +19,18 @@ test("actual local service renders on desktop and narrow screens", async ({
     const nodes = document.querySelectorAll("main>div");
     return nodes.length === 1 && getComputedStyle(nodes[0]).opacity === "1";
   });
+  await page.waitForFunction(() => {
+    const hint = document.querySelector(".period-hint");
+    const children = [
+      ...document.querySelectorAll(".period-calendar,.period-context"),
+    ];
+    return (
+      hint &&
+      !hint.textContent?.includes("正在读取") &&
+      children.length > 0 &&
+      children.every((e) => getComputedStyle(e).opacity === "1")
+    );
+  });
   await page.screenshot({
     path: path.resolve("../.impeccable/review/desktop.png"),
     fullPage: true,
@@ -48,6 +60,18 @@ test("actual local service renders on desktop and narrow screens", async ({
   await page.waitForFunction(() => {
     const nodes = document.querySelectorAll("main>div");
     return nodes.length === 1 && getComputedStyle(nodes[0]).opacity === "1";
+  });
+  await page.waitForFunction(() => {
+    const hint = document.querySelector(".period-hint");
+    const children = [
+      ...document.querySelectorAll(".period-calendar,.period-context"),
+    ];
+    return (
+      hint &&
+      !hint.textContent?.includes("正在读取") &&
+      children.length > 0 &&
+      children.every((e) => getComputedStyle(e).opacity === "1")
+    );
   });
   await page.screenshot({
     path: path.resolve("../.impeccable/review/mobile.png"),
@@ -88,6 +112,22 @@ test("collection controls, search, pagination and cancellation use backend contr
         status: "ready",
         message: "测试连接",
         profiles: [profile],
+      };
+    else if (p === "/api/periods")
+      data = {
+        periods: [
+          {
+            mode: "recent7",
+            label: "7天",
+            available: true,
+            message: "",
+            anchor_date: "2026-10-19",
+            min_anchor: "2026-10-19",
+            max_anchor: "2026-10-19",
+            start_date: "2026-10-19",
+            end_date: "2026-10-25",
+          },
+        ],
       };
     else if (p === "/api/tasks" && route.request().method() === "POST")
       data = task = {

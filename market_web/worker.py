@@ -26,9 +26,9 @@ class MarketConnection:
         if not self.server.extension_seen.wait(float(os.environ.get('MARKET_CONNECT_WAIT', '45'))):
             self.server.stop()
             raise RuntimeError('未连接取数桥 请打开 Chrome 并加载本工具附带的扩展')
-        if version_tuple(self.server.extension_version) < version_tuple('0.9.0'):
+        if version_tuple(self.server.extension_version) < version_tuple('1.0.0'):
             self.server.stop()
-            raise RuntimeError('请将取数桥更新为本工具附带的 0.9.0 版 然后刷新市场排行页面')
+            raise RuntimeError('请刷新取数桥扩展 更新为本工具附带的 1.0.0 版')
         return self
 
     def ask(self, **market):
@@ -76,7 +76,8 @@ def collect(task_id):
                 if limit.isdigit() and page > int(limit):
                     raise RuntimeError('已达到配置的请求上限 已停止并保留完成部分')
                 update_task(task_id, message=f'正在读取第 {page} 页')
-                data = conn.ask(op='page', capture_id=profile['id'], page=page, signature=profile['signature'])
+                data = conn.ask(op='page', capture_id=profile['id'], page=page, signature=profile['signature'],
+                                date_range=profile.get('request_date_range'))
                 with connect() as c:
                     expected = c.execute('SELECT account_key FROM tasks WHERE id=?', (task_id,)).fetchone()[0]
                 if profile_account != conn.account_key or (expected and expected != conn.account_key):

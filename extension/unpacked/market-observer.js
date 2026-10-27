@@ -1,8 +1,9 @@
 // Read-only market request discovery. Runs only on sycm, in the page's MAIN world.
 // Request URLs (including anti-CSRF parameters) stay in page memory, never local storage.
 (() => {
-  if (window.__sycmMarket) return;
-  const MAX_CAPTURES = 12;
+  const previous = window.__sycmMarket;
+  if (previous?.version === 3) return;
+  const MAX_CAPTURES = 128;
   const blocked = /(^|[/.])(add|create|update|delete|remove|save|submit|cancel|set|edit|upload|apply|bind|unbind)([/.]|$)/i;
   const sensitive = /token|cookie|session|csrf|secret|password|sign|^_$|^t$/i;
   const pageNames = ['page', 'pageNo', 'pageNum', 'currentPage', 'pageIndex'];
@@ -78,21 +79,55 @@
 
   const originalFetch = window.fetch;
   const state = window.__sycmMarket = {
-    captures: [], observations: [], version: 1,
+    captures: previous?.captures || [], observations: previous?.observations || [], version: 3,
     inspect() {
       return this.captures.map(c => ({
         id: c.id, signature: c.signature, path: c.path, params: c.params,
         captured_at: c.capturedAt, page_key: c.pageKey, source_page: c.sourcePage,
-        sample_count: c.rowsPath.reduce((o, k) => o?.[k], c.body)?.length || 0,
-        total: totalOf(c.body, c.rowsPath),
+        rows_path: c.rowsPath, page_base: c.pageBase ?? 1,
+        token_names: [...new URL(c.url).searchParams.keys()].filter(k=>['token','_tb_token_'].includes(k)),
+        sample_count: c.body ? c.rowsPath.reduce((o, k) => o?.[k], c.body)?.length || 0 : c.sampleCount || 0,
+        total: c.body ? totalOf(c.body, c.rowsPath) : c.total ?? null,
       }));
     },
-    async page(id, page, expectedSignature) {
+    restore(profiles) {
+      for (const p of profiles) {
+        try {
+          if (this.captures.some(c=>c.id===p.id)) continue;
+          if (!Array.isArray(p.rows_path) || p.rows_path.length>6 || !p.rows_path.every(k=>typeof k==='string')) continue;
+          const u=new URL(p.path,location.origin);
+          if(!accepted(u)) continue;
+          for(const [k,v] of Object.entries(p.params||{})) if(!sensitive.test(k))u.searchParams.set(k,String(v));
+          if(signature(u.href)!==p.signature)continue;
+          if(p.page_key&&pageNames.includes(p.page_key))u.searchParams.set(p.page_key,String(p.page_base===0?0:1));
+          for(const k of p.token_names||[])if(['token','_tb_token_'].includes(k))u.searchParams.set(k,'');
+          this.captures.push({id:p.id,signature:p.signature,url:u.href,path:p.path,rowsPath:p.rows_path,pageKey:p.page_key,
+            pageBase:p.page_base??1,params:p.params,capturedAt:p.captured_at,sourcePage:p.source_page,sampleCount:p.sample_count,total:p.total});
+        } catch (_) {}
+      }
+      this.captures=this.captures.slice(0,MAX_CAPTURES);
+    },
+    async page(id, page, expectedSignature, dateRange) {
       const c = this.captures.find(c => c.id === id);
       if (!c || c.signature !== expectedSignature) throw Error('页面来源已变化 请重新识别市场榜单');
       if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw Error('页码无效');
       const url = new URL(c.url);
       if (!accepted(url)) throw Error('只允许已识别的市场商品只读请求');
+      if(dateRange!=null){
+        if(!/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/.test(dateRange))throw Error('统计区间无效');
+        const [start,end]=dateRange.split('|');
+        const days=(Date.parse(end)-Date.parse(start))/86400000;
+        const spans={today:0,day:0,recent7:6,recent30:29,week:6};
+        const kind=url.searchParams.get('dateType');
+        if(!Number.isInteger(days)||days<0||(!(kind in spans)&&kind!=='month')||(kind in spans&&days!==spans[kind]))throw Error('统计区间与时间入口不一致');
+        if(kind==='month'&&(start.slice(0,7)!==end.slice(0,7)||!start.endsWith('-01')||new Date(Date.parse(end)+86400000).getUTCDate()!==1))throw Error('月统计必须为完整月份');
+        const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        if(end>today||(kind!=='today'&&end===today))throw Error('统计周期尚未结束');
+        if(kind==='today'&&end!==today)throw Error('实时统计日已变化 请重新开始实时采集');
+        url.searchParams.set('dateRange',dateRange);
+      }
+      const csrfCookie=document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith('_tb_token_='));
+      if(csrfCookie){const token=csrfCookie.slice('_tb_token_='.length);for(const k of ['token','_tb_token_'])if(url.searchParams.has(k))url.searchParams.set(k,token);}
       if (!c.pageKey && page > 1) throw Error('未识别到分页参数 请在原页面翻页后重新识别');
       if (c.pageKey) {
         // pageIndex is not automatically assumed to be zero-based.
@@ -113,6 +148,7 @@
       const rows = c.rowsPath.reduce((o, k) => o?.[k], body);
       if (!Array.isArray(rows) || rows.some(r => !itemRow(r))) throw Error('市场榜单结构变化 需要重新适配');
       const total = totalOf(body, c.rowsPath);
+      if(page===1&&dateRange)remember(url.href,body);
       let hasMore = null;
       for (const parent of [body, body.data]) if (typeof parent?.hasMore === 'boolean') hasMore = parent.hasMore;
       return { rows, total, has_more: hasMore, page_key: c.pageKey };

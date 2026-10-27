@@ -204,3 +204,7 @@ The global Motion configuration uses a 240ms transition and `cubic-bezier(.16,1,
 - **Don't** use red as a decorative accent or add emoji in place of outline icons.
 - **Don't** add decorative charts, oversized statistics or repeated dashboard cards to this operational world.
 - **Don't** present sample rows or inferred exact quantities as actual collected data.
+
+## Period controls v0.2
+
+The six-mode group extends the existing restrained ledger. Use the existing cobalt token for the selected label and a shared white layout highlight over the neutral track. Date/month/week inputs sit to the right on desktop and wrap below the track on narrow screens. The mode group uses `aria-pressed`, native labeled date inputs, named previous/next buttons and visible valid-range copy. Date clear/invalid states disable collection and stepping; active-task provenance remains independent of the next selection. Calendar/context changes have keyed presence exits, and MotionConfig/CSS preserve reduced-motion behavior. No palette or typography tokens changed.

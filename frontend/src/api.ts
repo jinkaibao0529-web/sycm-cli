@@ -8,6 +8,36 @@ export type Profile = {
   source_page: string;
   sample_count: number;
   total: number | null;
+  period?: {
+    mode: string;
+    label: string;
+    start_date: string;
+    end_date: string;
+    kind: string;
+  };
+};
+export const periodLabels = {
+  realtime: "实时",
+  recent7: "7天",
+  recent30: "30天",
+  day: "日",
+  week: "周",
+  month: "月",
+};
+export type PeriodChoice = {
+  period_mode: keyof typeof periodLabels;
+  anchor_date?: string;
+};
+export type PeriodOption = {
+  mode: keyof typeof periodLabels;
+  label: string;
+  available: boolean;
+  message: string;
+  min_anchor?: string;
+  max_anchor?: string;
+  anchor_date?: string;
+  start_date?: string;
+  end_date?: string;
 };
 export type Connection = {
   ok: boolean;
@@ -77,10 +107,12 @@ export const statusLabel: Record<string, string> = {
   interrupted: "已中断",
 };
 export const dateLabel = (profile?: Profile) =>
-  profile?.params.dateRange ||
-  (profile?.params.startDate
-    ? `${profile.params.startDate} 至 ${profile.params.endDate || profile.params.startDate}`
-    : "与生意参谋当前周期一致");
+  `${profile?.period?.label || periodLabels[(profile?.params.dateType === "today" ? "realtime" : profile?.params.dateType) as keyof typeof periodLabels] || ""} ${
+    profile?.params.dateRange?.replace("|", " 至 ") ||
+    (profile?.params.startDate
+      ? `${profile.params.startDate} 至 ${profile.params.endDate || profile.params.startDate}`
+      : "与生意参谋当前周期一致")
+  }`.trim();
 export const categoryLabel = (profile?: Profile) =>
   profile?.params.cateName ||
   profile?.params.categoryName ||

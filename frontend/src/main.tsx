@@ -57,8 +57,11 @@ import {
   type Item,
   type Profile,
   type Task,
+  type PeriodChoice,
+  periodLabels,
 } from "./api";
 import { Button } from "./components/ui/button";
+import { PeriodPicker } from "./components/period-picker";
 import "./styles.css";
 
 type View = "rank" | "history" | "settings";
@@ -101,6 +104,7 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profileId, setProfileId] = useState("");
+  const [periodChoice, setPeriodChoice] = useState<PeriodChoice | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [itemTotal, setItemTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -211,11 +215,12 @@ function App() {
     }
   }
   async function start() {
-    if (!profile) return;
+    if (!profile || !periodChoice) return;
     setBusy(true);
     try {
       const task = await api<Task>("/tasks", "POST", {
         profile_id: profile.id,
+        ...periodChoice,
       });
       setTasks((p) => [task, ...p]);
       setSelectedId(task.id);
@@ -393,7 +398,7 @@ function App() {
                 <ArrowUpRight size={14} />
               </button>
               <div className="version">
-                基于 sycm-cli<span>v0.1.0</span>
+                基于 sycm-cli<span>v0.2.0</span>
               </div>
             </div>
           </aside>
@@ -544,6 +549,11 @@ function App() {
                           />
                         </button>
                       </div>
+                      <PeriodPicker
+                        profile={profile}
+                        disabled={checking || busy}
+                        onChange={setPeriodChoice}
+                      />
                       <div className="filter-grid">
                         <label className="field source-field">
                           <span>榜单来源</span>
@@ -574,7 +584,11 @@ function App() {
                         <div className="field">
                           <span>统计周期</span>
                           <div className="field-value">
-                            {profile ? dateLabel(profile) : "尚未识别"}
+                            {periodChoice
+                              ? `${periodLabels[periodChoice.period_mode]} ${periodChoice.anchor_date || "最新统计窗口"}`
+                              : profile
+                                ? dateLabel(profile)
+                                : "尚未识别"}
                           </div>
                         </div>
                         <div className="field">
@@ -586,7 +600,13 @@ function App() {
                         </div>
                         <Button
                           onClick={start}
-                          disabled={!profile || checking || busy || !!running}
+                          disabled={
+                            !profile ||
+                            !periodChoice ||
+                            checking ||
+                            busy ||
+                            !!running
+                          }
                         >
                           {busy ? (
                             <LoaderCircle size={15} className="spin" />
@@ -599,8 +619,8 @@ function App() {
                       <div className="sync-note">
                         <Link2 size={13} />
                         <span>
-                          筛选条件与生意参谋同步 在原页面切换类目 日期或榜单后
-                          重新识别即可
+                          类目与榜单条件来自生意参谋 时间周期在本地切换
+                          未识别的入口需在原页面打开一次
                         </span>
                       </div>
                       <AnimatePresence initial={false}>
@@ -722,7 +742,7 @@ function App() {
                           </h2>
                           <p>
                             {selected
-                              ? `${niceTime(selected.created_at)} 采集 · 区间数据保留平台原文`
+                              ? `${dateLabel(selected.profile)} · ${niceTime(selected.created_at)} 采集 · ${selected.profile.period?.kind || "区间数据保留平台原文"}`
                               : "连接后读取真实榜单 支持预览和 Excel 导出"}
                           </p>
                         </div>
@@ -903,12 +923,16 @@ function App() {
                                 <h3>
                                   {activeTask(selected)
                                     ? "正在读取第一批商品"
-                                    : "你的下一份市场榜单 从这里开始"}
+                                    : selected?.status === "completed"
+                                      ? "这个周期暂无商品数据"
+                                      : "你的下一份市场榜单 从这里开始"}
                                 </h3>
                                 <p>
                                   {activeTask(selected)
                                     ? "取数桥正在连接浏览器 数据返回后会出现在这里"
-                                    : "先连接生意参谋 识别当前榜单 再一键采集全部页"}
+                                    : selected?.status === "completed"
+                                      ? "可以切换其他日期或时间入口重新采集"
+                                      : "先连接生意参谋 识别当前榜单 再一键采集全部页"}
                                 </p>
                                 <Button
                                   variant="outline"

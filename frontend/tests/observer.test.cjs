@@ -30,6 +30,7 @@ function harness() {
   };
   const context = vm.createContext({
     window: w,
+    document: { cookie: "_tb_token_=fresh-token" },
     location: {
       href: "https://sycm.taobao.com/mc/mq",
       origin: "https://sycm.taobao.com",
@@ -65,6 +66,51 @@ test("observes market requests only and never exposes tokens", async () => {
   assert(!JSON.stringify(meta).includes("secret"));
   assert.equal(meta.total, 2);
   assert.equal(meta.sample_count, 1);
+});
+
+test("restores credential-free templates after page refresh and renews CSRF token", async () => {
+  const first = harness();
+  await first.w.fetch(
+    "https://sycm.taobao.com/mc/mq/item/rank.json?page=1&dateType=day&dateRange=2020-01-02%7C2020-01-02&token=secret",
+  );
+  await new Promise((r) => setImmediate(r));
+  const saved = first.w.__sycmMarket.inspect();
+  assert(!JSON.stringify(saved).includes("secret"));
+  assert.deepEqual(Array.from(saved[0].rows_path), ["data", "data"]);
+  const second = harness();
+  second.w.__sycmMarket.restore(saved);
+  const c = second.w.__sycmMarket.inspect()[0];
+  const result = await second.w.__sycmMarket.page(
+    c.id,
+    1,
+    c.signature,
+    "2020-01-01|2020-01-01",
+  );
+  assert.equal(result.rows.length, 1);
+  const request = new URL(second.requests.at(-1));
+  assert.equal(request.searchParams.get("dateRange"), "2020-01-01|2020-01-01");
+  assert.equal(request.searchParams.get("dateType"), "day");
+  assert.equal(request.searchParams.get("token"), "fresh-token");
+});
+
+test("date overrides cannot change endpoint or use a wrong span", async () => {
+  const { w, requests } = harness();
+  await w.fetch(
+    "https://sycm.taobao.com/mc/mq/item/rank.json?page=1&dateType=recent7&dateRange=2020-01-01%7C2020-01-07&cateId=1",
+  );
+  await new Promise((r) => setImmediate(r));
+  const c = w.__sycmMarket.inspect()[0];
+  await assert.rejects(() =>
+    w.__sycmMarket.page(c.id, 1, c.signature, "2020-02-01|2020-02-01"),
+  );
+  await assert.rejects(() =>
+    w.__sycmMarket.page(c.id, 1, c.signature, "2099-01-01|2099-01-07"),
+  );
+  await w.__sycmMarket.page(c.id, 2, c.signature, "2020-02-01|2020-02-07");
+  const u = new URL(requests.at(-1));
+  assert.equal(u.pathname, "/mc/mq/item/rank.json");
+  assert.equal(u.searchParams.get("cateId"), "1");
+  assert.equal(u.searchParams.get("page"), "2");
 });
 test("replays only captured endpoint with pagination and immutable filters", async () => {
   const { w, requests } = harness();
