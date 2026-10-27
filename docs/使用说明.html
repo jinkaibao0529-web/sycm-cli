@@ -5,12 +5,12 @@
 <p>使用目标：按顺序完成解压、启动、安装取数桥、连接生意参谋、选择日期、采集和导出。首次使用从头操作；已经装好后直接看“每次使用的简短清单”。本手册的标题可通过飞书目录导航。</p>
 <h1 seq="auto">使用前准备</h1>
 <ul><li>一台 Windows 电脑和 Chrome 浏览器。取数桥要求 Chrome 116 或更新版本；旧版先更新。本文按 Chrome 桌面版说明。</li><li>可登录生意参谋、并能正常查看“市场 → 市场排行 → 商品”的账号。工具沿用账号现有权限，不能增加平台购买权限。</li><li>稳定网络和完整的 Windows 发布包。普通用户无需安装 Python、Node、Agent、MCP，也不需要模型 API 密钥。</li><li>一个长期保留的工具文件夹，例如 D 盘的“市场观察”。位置只是示例，可以选择自己电脑实际存在的盘符。</li></ul>
-<p>软件下载：打开 <a href="https://github.com/jinkaibao0529-web/sycm-cli/releases/tag/v0.2.2">https://github.com/jinkaibao0529-web/sycm-cli/releases/tag/v0.2.2</a> ，在 Assets（资源）中选择“市场观察-Windows-v0.2.2.zip”。不要选择 Source code（源码），源码不是可直接双击运行的程序。无法访问 GitHub 时，向提供工具的人索取同版本完整发布包。</p>
+<p>软件下载：打开 <a href="https://github.com/jinkaibao0529-web/sycm-cli/releases/tag/v0.2.2">https://github.com/jinkaibao0529-web/sycm-cli/releases/tag/v0.2.2</a> ，在 Assets（资源）中选择“MarketWorkbench-Windows-v0.2.2.zip”。不要选择 Source code（源码），源码不是可直接双击运行的程序。无法访问 GitHub 时，向提供工具的人索取同版本完整发布包。</p>
 <p>先认识三个对象：</p>
 <table><thead><tr><th><p>对象</p></th><th><p>在哪里</p></th><th><p>有什么作用</p></th></tr></thead><tbody><tr><td><p>本地工作台</p></td><td><p>双击 MarketWorkbench.exe 后打开的页面</p></td><td><p>选择日期、采集、预览和导出</p></td></tr><tr><td><p>取数桥扩展</p></td><td><p>Chrome 扩展页中的 taobao-cli 取数桥</p></td><td><p>把本地查询交给已登录的生意参谋页面</p></td></tr><tr><td><p>生意参谋</p></td><td><p>Chrome 内的 sycm.taobao.com 页面</p></td><td><p>提供登录状态、账号权限和真实榜单数据</p></td></tr></tbody></table>
 <p>“搭桥”就是让三者连接。采集时本地程序、加载扩展的 Chrome 和生意参谋标签页都要保持打开。Excel 生成后可以独立使用。</p>
 <h1 seq="auto">下载与完整解压</h1>
-<ol><li>找到“市场观察-Windows-v0.2.2.zip”。不知道下载位置时，在 Chrome 按 Ctrl+J 打开下载记录，找到文件，再点击“在文件夹中显示”或文件夹图标。</li><li>在压缩包上右键，选择“全部解压缩”；部分电脑显示“解压到…”。选择准备好的固定位置，完成解压。</li><li>进入解压后的“市场商品榜”文件夹，确认有 MarketWorkbench.exe、_internal 文件夹、extension 文件夹和本手册。</li><li>不要直接在压缩软件的预览窗口里运行，也不要只复制 exe；主程序需要同目录的其他文件。</li><li>打开 extension → unpacked，确认这一层直接有 manifest.json、background.js、market-observer.js 和 icons 文件夹。稍后安装扩展就选择这一层。</li></ol>
+<ol><li>找到“MarketWorkbench-Windows-v0.2.2.zip”。不知道下载位置时，在 Chrome 按 Ctrl+J 打开下载记录，找到文件，再点击“在文件夹中显示”或文件夹图标。</li><li>在压缩包上右键，选择“全部解压缩”；部分电脑显示“解压到…”。选择准备好的固定位置，完成解压。</li><li>进入解压后的“市场商品榜”文件夹，确认有 MarketWorkbench.exe、_internal 文件夹、extension 文件夹和本手册。</li><li>不要直接在压缩软件的预览窗口里运行，也不要只复制 exe；主程序需要同目录的其他文件。</li><li>打开 extension → unpacked，确认这一层直接有 manifest.json、background.js、market-observer.js 和 icons 文件夹。稍后安装扩展就选择这一层。</li></ol>
 <p>如果 Windows 隐藏后缀，MarketWorkbench.exe 可能显示为 MarketWorkbench，manifest.json 可能显示为 manifest。可以在资源管理器的“查看”中开启“文件扩展名”。不要自己更改后缀。</p>
 <p>成功标志：从普通文件夹能找到主程序和上述配套目录，不需要再进入压缩包。</p>
 <h1 seq="auto">第一次启动</h1>
