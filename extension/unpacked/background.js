@@ -126,6 +126,7 @@ async function readJournal() {
 }
 
 importScripts("accounts.js");   // 账号切换（handleAccount 等）
+importScripts("market.js");
 
 async function findBridge() {
   for (const p of PORTS) {
@@ -349,6 +350,7 @@ function jobName(job) {
 }
 
 async function handle(job) {
+  if (job.market) return handleMarket(job);
   if (job.journal) {   // tb log export：本地日志 + 存了哪些账号（只有名字、昵称、编号）+ 现在登录的是谁
     const accounts = await accountList();
     return { id: job.id, journal: await readJournal(), accounts: accounts.scopes, current: accounts.current, browser: browserInfo(),

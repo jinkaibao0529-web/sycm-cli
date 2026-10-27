@@ -1,5 +1,15 @@
 # 生意参谋 sycm-cli
 
+## 本 fork 新增 Windows 本地市场商品榜工具
+
+提供独立本地网站、浏览器连接引导、真实市场商品榜识别、全部可访问页采集、取消、预览搜索、任务记录和 Excel 导出。日常使用不需要 Agent 或模型 API。
+
+使用方法见 [本地工具说明](docs/本地工具使用说明.md)。开发启动 `python run_market.py`，Windows 发布包双击 `MarketWorkbench.exe`。新增市场榜功能通过 0.9.0 扩展读取用户实际市场页面中的只读请求；筛选条件在生意参谋设置后同步。真实数据、Cookie、运行数据库和 HAR 不进入仓库。
+
+本次已验证接口为 `/mc/mq/mkt/item/offline/rank.json`，免费市场版、近 7 天、交易总量榜的一个类目，读取 30 页 / 300 件。其他榜单、周期与账号权限须分别验证，不能由这次验证推定全部可用。白黑蓝界面使用 Lucide、Radix 与 Motion，并兼容减少动态效果。
+
+下方保留上游说明，其中“仅读取本店数据”描述上游 CLI；本 fork 的市场榜增量功能以当前登录账号实际可访问的市场页面为范围。
+
 ![License](https://img.shields.io/github/license/rakei076/sycm-cli)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Stars](https://img.shields.io/github/stars/rakei076/sycm-cli?style=social)

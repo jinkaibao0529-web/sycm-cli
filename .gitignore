@@ -12,3 +12,20 @@ __pycache__/
 *.pyc
 .DS_Store
 ._*
+
+# Local market workbench
+.venv/
+node_modules/
+frontend/dist/
+.pytest_cache/
+build/
+dist/
+*.spec
+.impeccable/review/
+*.har
+*.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
