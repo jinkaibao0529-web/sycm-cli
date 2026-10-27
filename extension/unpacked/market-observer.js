@@ -2,7 +2,7 @@
 // Request URLs (including anti-CSRF parameters) stay in page memory, never local storage.
 (() => {
   const previous = window.__sycmMarket;
-  if (previous?.version === 3) return;
+  if (previous?.version === 4) return;
   const MAX_CAPTURES = 128;
   const blocked = /(^|[/.])(add|create|update|delete|remove|save|submit|cancel|set|edit|upload|apply|bind|unbind)([/.]|$)/i;
   const sensitive = /token|cookie|session|csrf|secret|password|sign|^_$|^t$/i;
@@ -11,6 +11,19 @@
   const itemRow = r => r && typeof r === 'object' &&
     (r.itemId != null || r.productId != null || r.auctionId != null || r.item?.id != null || r.item?.itemId != null) &&
     (r.itemTitle != null || r.itemName != null || r.title != null || r.item?.title != null || r.item?.name != null);
+
+  function explainedFailure(payload) {
+    const raw=payload?.message||payload?.msg||payload?.errorMessage||payload?.error?.message||'';
+    const message=typeof raw==='string'?raw:'';
+    if(/请(?:重新)?登录|登录.{0,5}(失效|过期)|未登录/.test(message))return '平台提示登录已失效 请在生意参谋重新登录';
+    if(/验证码|滑块|操作过于频繁|异常请求|风控/.test(message))return '平台要求验证 已停止 请在生意参谋处理后重试';
+    if(/无权|没有权限|权限不足|无权限|未订购|未开通|未购买|需要订购/.test(message))return '平台明确返回权限不足 请检查当前账号对所选周期的访问权限';
+    if(/超出.{0,16}(查询|时间|日期|范围)|超过.{0,16}(保存|保留|查询|期限)|仅支持.{0,20}(天|月|年|历史|日期)|查询期限|保留期|数据已过期|历史.{0,10}(不可|不支持)/.test(message)){
+      const window=message.match(/最近\s*(\d+)\s*(天|个月|月|年)/);
+      return '平台明确返回所选日期超出可查询范围'+(window?'（平台提示最近'+window[1]+window[2]+'）':'');
+    }
+    return null;
+  }
 
   function findRows(value, path = [], depth = 0) {
     if (depth > 6 || value == null) return null;
@@ -79,7 +92,7 @@
 
   const originalFetch = window.fetch;
   const state = window.__sycmMarket = {
-    captures: previous?.captures || [], observations: previous?.observations || [], version: 3,
+    captures: previous?.captures || [], observations: previous?.observations || [], version: 4,
     inspect() {
       return this.captures.map(c => ({
         id: c.id, signature: c.signature, path: c.path, params: c.params,
@@ -136,17 +149,17 @@
       }
       if (url.searchParams.has('_')) url.searchParams.set('_', String(Date.now()));
       const response = await originalFetch.call(window, url.href, { credentials: 'include', signal: AbortSignal.timeout(30000) });
-      if (response.status === 401 || response.status === 403 || new URL(response.url).origin !== location.origin || /login/i.test(new URL(response.url).pathname)) {
-        throw Error('登录已失效或无权访问 请在生意参谋重新登录并检查权限');
-      }
-      if (!response.ok) throw Error('市场榜单请求失败 请稍后重试');
+      if (response.status === 401 || /login/i.test(new URL(response.url).pathname)) throw Error('平台要求重新登录 请在生意参谋完成登录');
+      if (new URL(response.url).origin !== location.origin) throw Error('平台重定向了请求 请在生意参谋检查当前页面提示');
       const text = await response.text();
-      if (/滑块|验证码|操作过于频繁|请重新登录|异常请求|风控/.test(text)) throw Error('平台要求验证 已停止 请回生意参谋完成验证后重试');
       let body;
-      try { body = JSON.parse(text); } catch (_) { throw Error('平台未返回榜单数据 请检查登录或验证提示'); }
-      if (body.success === false || (body.code != null && !['0', '200'].includes(String(body.code)))) throw Error('平台拒绝此次查询 请检查权限与验证提示');
+      try { body = JSON.parse(text); } catch (_) {
+        if(/滑块|验证码|操作过于频繁|异常请求|风控/.test(text))throw Error('平台要求验证 已停止 请在生意参谋处理后重试');
+        throw Error(response.status===403?'平台拒绝访问（403） 未提供明确原因 请检查登录或更换日期重试':'平台未返回榜单数据 请在原页面查看提示后重试');
+      }
+      if (!response.ok || body.success === false || (body.code != null && !['0', '200'].includes(String(body.code)))) throw Error(explainedFailure(body)||'平台拒绝此次查询 未提供明确原因 请更换日期或稍后重试');
       const rows = c.rowsPath.reduce((o, k) => o?.[k], body);
-      if (!Array.isArray(rows) || rows.some(r => !itemRow(r))) throw Error('市场榜单结构变化 需要重新适配');
+      if (!Array.isArray(rows) || rows.some(r => !itemRow(r))) throw Error(explainedFailure(body)||'市场榜单结构变化 需要重新适配');
       const total = totalOf(body, c.rowsPath);
       if(page===1&&dateRange)remember(url.href,body);
       let hasMore = null;

@@ -33,7 +33,7 @@ export type PeriodOption = {
   label: string;
   available: boolean;
   message: string;
-  min_anchor?: string;
+  min_anchor?: string | null;
   max_anchor?: string;
   anchor_date?: string;
   start_date?: string;

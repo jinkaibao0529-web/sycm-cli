@@ -55,7 +55,7 @@ test("all period controls submit fixed requests and enforce date boundaries", as
           label,
           available: true,
           message: "",
-          min_anchor: dates[mode as keyof typeof dates][0],
+          min_anchor: null,
           max_anchor: dates[mode as keyof typeof dates][1],
           anchor_date: dates[mode as keyof typeof dates][1],
         })),
@@ -71,13 +71,13 @@ test("all period controls submit fixed requests and enforce date boundaries", as
             mode: posted.period_mode,
             label: "月",
             start_date: posted.anchor_date,
-            end_date: "2026-08-31",
+            end_date: "2025-01-31",
             kind: "历史周期统计",
           },
           params: {
             ...profile.params,
             dateType: "month",
-            dateRange: "2026-08-01|2026-08-31",
+            dateRange: "2025-01-01|2025-01-31",
           },
         },
         created_at: new Date().toISOString(),
@@ -104,11 +104,18 @@ test("all period controls submit fixed requests and enforce date boundaries", as
   await expect(page.getByRole("button", { name: "下一周期" })).toBeDisabled();
   await page.getByRole("button", { name: "上一周期" }).click();
   await expect(page.getByLabel("日统计日期")).toHaveValue("2026-10-25");
+  await expect(page.getByLabel("日统计日期")).not.toHaveAttribute("min");
+  await page.getByLabel("日统计日期").fill("2025-01-15");
+  await expect(
+    page.getByRole("button", { name: "开始采集", exact: true }),
+  ).toBeEnabled();
   await group.getByRole("button", { name: "周", exact: true }).click();
   await expect(page.getByLabel("周统计日期")).toHaveValue("2026-W43");
   await page.getByRole("button", { name: "上一周期" }).click();
   await expect(page.getByLabel("周统计日期")).toHaveValue("2026-W42");
-  await expect(page.getByRole("button", { name: "上一周期" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "上一周期" })).toBeEnabled();
+  await page.getByRole("button", { name: "上一周期" }).click();
+  await expect(page.getByLabel("周统计日期")).toHaveValue("2026-W41");
   await group.getByRole("button", { name: "月", exact: true }).click();
   await page.getByRole("button", { name: "上一周期" }).click();
   await expect(page.getByLabel("月统计日期")).toHaveValue("2026-08");
@@ -119,16 +126,16 @@ test("all period controls submit fixed requests and enforce date boundaries", as
   await expect(
     page.getByRole("button", { name: "开始采集", exact: true }),
   ).toBeDisabled();
-  await page.getByLabel("月统计日期").fill("2026-08");
+  await page.getByLabel("月统计日期").fill("2025-01");
   await page.getByRole("button", { name: "开始采集", exact: true }).click();
   expect(posted).toEqual({
     profile_id: "period-source",
     period_mode: "month",
-    anchor_date: "2026-08-01",
+    anchor_date: "2025-01-01",
   });
   await group.getByRole("button", { name: "7天", exact: true }).click();
   await expect(
-    page.getByText("月 2026-08-01 至 2026-08-31", { exact: false }).first(),
+    page.getByText("月 2025-01-01 至 2025-01-31", { exact: false }).first(),
   ).toBeVisible();
   expect(task.profile.period.mode).toBe("month");
 });

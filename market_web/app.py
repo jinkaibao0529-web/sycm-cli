@@ -44,6 +44,7 @@ class Coordinator:
         self.lock = threading.Lock()
         self.connection = {'ok': False, 'status': 'idle', 'message': '尚未检查浏览器连接', 'profiles': []}
         self.profiles = {}
+        self.sources = {}
         self.process = None
         self.probing = False
 
@@ -56,6 +57,7 @@ class Coordinator:
                 raise HTTPException(409, '正在读取浏览器 请等待当前操作完成')
             self.probing = True
             self.profiles = {}
+            self.sources = {}
             self.connection = {'ok': False, 'status': 'checking', 'message': '正在等待浏览器取数桥', 'profiles': []}
         threading.Thread(target=self._probe, daemon=True).start()
 
@@ -68,7 +70,9 @@ class Coordinator:
             data = json.loads(lines[-1]) if lines else {'ok': False, 'message': '连接检查未完成 请重试', 'profiles': []}
             with self.lock:
                 self.profiles = {p['id']: p for p in data.get('profiles', [])}
-                visible = [{k: v for k, v in p.items() if k != 'account_key'} for p in data.get('profiles', [])]
+                from .periods import source_groups
+                self.sources = source_groups(list(self.profiles.values()))
+                visible = [{**{k: v for k, v in p.items() if k != 'account_key'}, 'id': key} for key, p in self.sources.items()]
                 self.connection = {**data, 'profiles': visible, 'status': 'ready' if self.profiles else 'connected' if data.get('ok') else 'offline'}
         except Exception:
             with self.lock:
@@ -80,7 +84,7 @@ class Coordinator:
         with self.lock:
             if self.is_active() or self.probing:
                 raise HTTPException(409, '已有任务正在执行')
-            profile = self.profiles.get(profile_id)
+            profile = self.resolve(profile_id)
             if not profile:
                 raise HTTPException(422, '来源尚未识别 请先检查浏览器连接')
             if anchor_date and not period_mode:
@@ -104,6 +108,9 @@ class Coordinator:
                 raise HTTPException(503, '无法启动采集进程')
             threading.Thread(target=self._watch, args=(self.process, task_id), daemon=True).start()
             return get_task(task_id)
+
+    def resolve(self, profile_id):
+        return self.sources.get(profile_id) or self.profiles.get(profile_id)
 
     def _watch(self, process, task_id):
         process.wait()
@@ -150,7 +157,7 @@ def create_app():
 
     @app.get('/api/session')
     def session():
-        return {'token': csrf, 'version': '0.2.0', 'local_only': True}
+        return {'token': csrf, 'version': '0.2.1', 'local_only': True}
 
     @app.get('/api/health')
     def health():
@@ -163,7 +170,7 @@ def create_app():
     @app.get('/api/periods')
     def periods(profile_id: str):
         from .periods import catalog
-        base = coordinator.profiles.get(profile_id)
+        base = coordinator.resolve(profile_id)
         if not base:
             raise HTTPException(422, '来源尚未识别 请先连接浏览器')
         return {'periods': catalog(list(coordinator.profiles.values()), base)}

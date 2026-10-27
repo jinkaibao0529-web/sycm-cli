@@ -197,3 +197,39 @@ def test_pagination_completes_using_raw_row_count(client,monkeypatch):
     monkeypatch.setattr(worker.random,'uniform',lambda *_:0)
     worker.collect(task_id)
     assert get_task(task_id)['status']=='completed' and get_task(task_id)['count']==2
+
+
+def test_normal_empty_period_is_not_permission_failure(client,monkeypatch):
+    from market_web import worker
+    task_id=seed('queued')
+    with connect() as c:c.execute('DELETE FROM items WHERE task_id=?',(task_id,))
+    class Connection:
+        account_key='private-hash'
+        def __enter__(self):return self
+        def __exit__(self,*_):pass
+        def ask(self,**_):return {'rows':[],'total':0,'page_key':'page'}
+    monkeypatch.setattr(worker,'MarketConnection',Connection)
+    worker.collect(task_id)
+    t=get_task(task_id)
+    assert t['status']=='completed' and t['count']==0
+    assert t['message']=='该周期未返回商品数据'
+
+
+@pytest.mark.parametrize('message',['平台明确返回权限不足','平台明确返回所选日期超出可查询范围','平台要求重新登录','平台拒绝此次查询 未提供明确原因'])
+def test_worker_does_not_change_dates_after_failure(client,monkeypatch,message):
+    from market_web import worker
+    task_id=seed('queued');calls=[]
+    with connect() as c:
+        c.execute('DELETE FROM items WHERE task_id=?',(task_id,))
+        p=json.loads(c.execute('SELECT profile FROM tasks WHERE id=?',(task_id,)).fetchone()[0]);p['request_date_range']='2025-01-15|2025-01-15'
+        c.execute('UPDATE tasks SET profile=?,count=0 WHERE id=?',(json.dumps(p),task_id))
+    class Connection:
+        account_key='private-hash'
+        def __enter__(self):return self
+        def __exit__(self,*_):pass
+        def ask(self,**kwargs):calls.append(kwargs);raise RuntimeError(message)
+    monkeypatch.setattr(worker,'MarketConnection',Connection)
+    worker.collect(task_id)
+    t=get_task(task_id)
+    assert t['status']=='failed' and t['message']==message
+    assert len(calls)==1 and calls[0]['date_range']=='2025-01-15|2025-01-15'

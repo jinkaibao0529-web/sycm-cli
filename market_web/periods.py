@@ -3,11 +3,29 @@ from __future__ import annotations
 
 import calendar
 import copy
+import hashlib
+import json
+import re
 from datetime import date, datetime, timedelta, timezone
 
 LABELS = {'realtime': '实时', 'recent7': '7天', 'recent30': '30天', 'day': '日', 'week': '周', 'month': '月'}
 TYPES = {'today': 'realtime', **{x: x for x in LABELS if x != 'realtime'}}
-FILTERS = ('cateId', 'cateFlag', 'rankType', 'sellerType', 'shopType', 'minPrice', 'maxPrice', 'priceSeg', 'keyWord', 'keyword', 'device', 'marketVersion')
+TRANSPORT = {'dateType', 'dateRange', 'startDate', 'endDate', 'date', 'statDate', 'page', 'pageNo', 'pageNum', 'currentPage', 'pageIndex', 'pageSize', '_', 't', 'callback', 'spm'}
+
+
+def source_filters(profile):
+    return {k: str(v) for k, v in sorted(profile.get('params', {}).items())
+            if k not in TRANSPORT and v not in ('', None) and not re.search(r'token|cookie|session|csrf|secret|password|sign', k, re.I)}
+
+
+def source_groups(profiles):
+    """Stable business sources, separate from per-period request templates."""
+    groups = {}
+    for profile in sorted(profiles, key=lambda p: p.get('captured_at', '')):
+        payload = json.dumps({'account': profile.get('account_key'), 'filters': source_filters(profile)}, sort_keys=True)
+        key = 'source_' + hashlib.sha256(payload.encode()).hexdigest()[:24]
+        groups[key] = profile
+    return groups
 
 
 def china_today():
@@ -30,7 +48,7 @@ def bounds(profile):
 
 
 def same_filters(a, b):
-    return all(a.get('params', {}).get(k, '') == b.get('params', {}).get(k, '') for k in FILTERS)
+    return source_filters(a) == source_filters(b)
 
 
 def matching(profiles, base, mode):
@@ -45,6 +63,47 @@ def matching(profiles, base, mode):
     return sorted(found, key=lambda p: (bounds(p)[1], p.get('captured_at', '')))
 
 
+def explicit_limits(options):
+    """Only adapter-attested platform limits count; observed dates never do."""
+    lows, highs = [], []
+    for p in options:
+        limits = p.get('query_limits') or {}
+        if limits.get('basis') != 'platform_explicit':
+            continue
+        for key, target in (('earliest_date', lows), ('latest_date', highs)):
+            if limits.get(key):
+                try:
+                    target.append(date.fromisoformat(limits[key]))
+                except (TypeError, ValueError):
+                    pass
+    return max(lows) if lows else None, min(highs) if highs else None
+
+
+def latest_complete(mode, sample, today):
+    if mode == 'day':
+        end = today - timedelta(days=1)
+        return end, end
+    if mode == 'week':
+        start, end = bounds(sample)
+        if (end - start).days != 6:
+            raise ValueError('平台周统计范围尚未完整识别')
+        current_start = today - timedelta(days=(today.weekday() - start.weekday()) % 7)
+        return current_start - timedelta(days=7), current_start - timedelta(days=1)
+    end = today.replace(day=1) - timedelta(days=1)
+    return end.replace(day=1), end
+
+
+def historical_limits(mode, options):
+    lower, upper = explicit_limits(options)
+    cutoff = min(china_today(), upper + timedelta(days=1)) if upper and upper < date.max else china_today()
+    start, end = latest_complete(mode, options[-1], cutoff)
+    if lower and mode == 'week':
+        lower += timedelta(days=(bounds(options[-1])[0].weekday() - lower.weekday()) % 7)
+    elif lower and mode == 'month' and lower.day != 1:
+        lower = lower.replace(day=calendar.monthrange(lower.year, lower.month)[1]) + timedelta(days=1)
+    return lower, start, end
+
+
 def catalog(profiles, base):
     result = []
     for mode, label in LABELS.items():
@@ -53,7 +112,10 @@ def catalog(profiles, base):
         if options:
             latest = options[-1]
             left, right = bounds(latest)
-            item.update(min_anchor=min(bounds(p)[0] for p in options).isoformat(), max_anchor=left.isoformat(),
+            minimum = None
+            if mode in {'day', 'week', 'month'}:
+                minimum, left, right = historical_limits(mode, options)
+            item.update(min_anchor=minimum.isoformat() if minimum else None, max_anchor=left.isoformat(),
                         anchor_date=left.isoformat(), start_date=left.isoformat(), end_date=right.isoformat(),
                         path=latest['path'])
         else:
@@ -67,7 +129,7 @@ def select(profiles, base, mode, anchor=None):
         raise ValueError('时间入口无效')
     options = matching(profiles, base, mode)
     if not options:
-        raise ValueError(f'{LABELS[mode]}入口尚未识别或无权限 请先在生意参谋打开并识别')
+        raise ValueError(f'{LABELS[mode]}接口模板尚未识别 请先在生意参谋打开该入口并识别一次')
     chosen = options[-1]
     first, last = bounds(chosen)
     if mode in {'realtime', 'recent7', 'recent30'}:
@@ -83,7 +145,10 @@ def select(profiles, base, mode, anchor=None):
         first = last - timedelta(days=span)
     else:
         try:
-            target = date.fromisoformat(anchor) if anchor else first
+            if anchor is not None and not re.fullmatch(r'\d{4}-\d{2}-\d{2}', anchor):
+                raise ValueError()
+            lower, latest, _ = historical_limits(mode, options)
+            target = date.fromisoformat(anchor) if anchor else latest
         except (TypeError, ValueError):
             raise ValueError('日期格式无效 请重新选择') from None
         if mode == 'week':
@@ -97,10 +162,9 @@ def select(profiles, base, mode, anchor=None):
             end = target.replace(day=calendar.monthrange(target.year, target.month)[1])
         else:
             end = target
-        earliest = min(bounds(p)[0] for p in options)
-        latest = max(bounds(p)[1] for p in options)
-        if target < earliest or end > latest:
-            raise ValueError('所选日期超出已识别的有效范围 请在生意参谋选择该历史周期后重新识别以扩展范围')
+        explicit_min, explicit_max = explicit_limits(options)
+        if (explicit_min and target < explicit_min) or (explicit_max and end > explicit_max):
+            raise ValueError('所选周期超出平台明确提供的查询范围')
         first, last = target, end
     if last > china_today() or (mode != 'realtime' and last == china_today()):
         raise ValueError('历史统计周期尚未结束 请使用实时入口')

@@ -104,7 +104,7 @@ def collect(task_id):
                 if not raw or data.get('has_more') is False or (total is not None and position >= total):
                     if total is not None and count < total:
                         raise RuntimeError('返回条数少于榜单总数 已保留完成部分 请检查权限或重复商品')
-                    update_task(task_id, status='completed', message='采集完成 数据已保存在本机')
+                    update_task(task_id, status='completed', message='该周期未返回商品数据' if count == 0 else '采集完成 数据已保存在本机')
                     return
                 if not data.get('page_key'):
                     raise RuntimeError('未识别到分页参数 已保留当前页 请在原页面翻页后重新识别')

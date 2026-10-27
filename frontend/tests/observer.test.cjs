@@ -5,20 +5,24 @@ const vm = require("node:vm");
 const crypto = require("node:crypto");
 
 function harness() {
+  let nextReply = null;
   class XHR {
     open() {}
     send() {}
   }
   const requests = [];
   const response = (rows, total = 2) => ({
-    status: 200,
-    ok: true,
-    url: "https://sycm.taobao.com/mc/mq/item/rank.json",
+    status: nextReply?.status || 200,
+    ok: !nextReply?.status || nextReply.status < 400,
+    url: nextReply?.url || "https://sycm.taobao.com/mc/mq/item/rank.json",
     clone() {
       return this;
     },
-    json: async () => ({ data: { data: rows, total } }),
-    text: async () => JSON.stringify({ data: { data: rows, total } }),
+    json: async () => nextReply?.body ?? { data: { data: rows, total } },
+    text: async () =>
+      typeof nextReply?.body === "string"
+        ? nextReply.body
+        : JSON.stringify(nextReply?.body ?? { data: { data: rows, total } }),
   });
   const w = {
     fetch: async (url) => {
@@ -50,7 +54,13 @@ function harness() {
     fs.readFileSync("../extension/unpacked/market-observer.js", "utf8"),
     context,
   );
-  return { w, requests };
+  return {
+    w,
+    requests,
+    setReply: (reply) => {
+      nextReply = reply;
+    },
+  };
 }
 test("observes market requests only and never exposes tokens", async () => {
   const { w } = harness();
@@ -141,4 +151,95 @@ test("ignores POST and write-like paths", async () => {
   await w.fetch("https://sycm.taobao.com/mc/mq/item/delete/rank.json");
   await new Promise((r) => setImmediate(r));
   assert.equal(w.__sycmMarket.inspect().length, 0);
+});
+
+async function capturedDay() {
+  const h = harness();
+  await h.w.fetch(
+    "https://sycm.taobao.com/mc/mq/item/rank.json?page=1&dateType=day&dateRange=2026-10-26%7C2026-10-26",
+  );
+  await new Promise((r) => setImmediate(r));
+  return { ...h, c: h.w.__sycmMarket.inspect()[0] };
+}
+
+test("uncaptured old dates are sent unchanged without fallback", async () => {
+  const h = await capturedDay();
+  await h.w.__sycmMarket.page(
+    h.c.id,
+    1,
+    h.c.signature,
+    "2025-01-15|2025-01-15",
+  );
+  assert.equal(
+    new URL(h.requests.at(-1)).searchParams.get("dateRange"),
+    "2025-01-15|2025-01-15",
+  );
+});
+
+test("normal empty rows are returned without guessing permissions or expiration", async () => {
+  const h = await capturedDay();
+  h.setReply({ body: { success: true, data: { data: [], total: 0 } } });
+  const result = await h.w.__sycmMarket.page(
+    h.c.id,
+    1,
+    h.c.signature,
+    "2025-01-15|2025-01-15",
+  );
+  assert.equal(result.rows.length, 0);
+  assert.equal(result.total, 0);
+});
+
+for (const [message, expected] of [
+  ["当前账号无权访问该周期", /明确返回权限不足/],
+  ["超出查询范围 仅支持查询最近90天", /超出可查询范围.*最近90天/],
+  ["请重新登录", /登录已失效/],
+  ["系统繁忙", /未提供明确原因/],
+])
+  test("platform error classification: " + message, async () => {
+    const h = await capturedDay();
+    h.setReply({ body: { success: false, code: "FAILED", message } });
+    const before = h.requests.length;
+    await assert.rejects(
+      () =>
+        h.w.__sycmMarket.page(
+          h.c.id,
+          1,
+          h.c.signature,
+          "2025-01-15|2025-01-15",
+        ),
+      expected,
+    );
+    assert.equal(h.requests.length, before + 1);
+    assert.equal(
+      new URL(h.requests.at(-1)).searchParams.get("dateRange"),
+      "2025-01-15|2025-01-15",
+    );
+    assert.equal(h.w.__sycmMarket.inspect().length, 1);
+  });
+
+test("unexplained 403 does not assert login expiration", async () => {
+  const h = await capturedDay();
+  h.setReply({ status: 403, body: "Forbidden" });
+  await assert.rejects(
+    () =>
+      h.w.__sycmMarket.page(h.c.id, 1, h.c.signature, "2025-01-15|2025-01-15"),
+    /403.*未提供明确原因/,
+  );
+});
+
+test("risk words in a successful product title are not permission errors", async () => {
+  const h = await capturedDay();
+  h.setReply({
+    body: {
+      success: true,
+      data: { data: [{ itemId: "1", itemTitle: "验证码产品" }], total: 1 },
+    },
+  });
+  const result = await h.w.__sycmMarket.page(
+    h.c.id,
+    1,
+    h.c.signature,
+    "2025-01-15|2025-01-15",
+  );
+  assert.equal(result.rows[0].itemTitle, "验证码产品");
 });

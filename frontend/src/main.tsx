@@ -398,7 +398,7 @@ function App() {
                 <ArrowUpRight size={14} />
               </button>
               <div className="version">
-                基于 sycm-cli<span>v0.2.0</span>
+                基于 sycm-cli<span>v0.2.1</span>
               </div>
             </div>
           </aside>
@@ -571,9 +571,12 @@ function App() {
                               )}
                               {connection.profiles.map((p, i) => (
                                 <option key={p.id} value={p.id}>
-                                  {categoryLabel(p)} · {dateLabel(p)}
+                                  {categoryLabel(p)} ·{" "}
+                                  {p.params.rankType === "gmv"
+                                    ? "交易总量榜"
+                                    : "已识别榜单"}
                                   {connection.profiles.length > 1
-                                    ? ` · 来源 ${i + 1}`
+                                    ? ` · 条件组 ${i + 1}`
                                     : ""}
                                 </option>
                               ))}
@@ -640,7 +643,13 @@ function App() {
                                   </p>
                                   <div className="param-list">
                                     {Object.entries(profile.params)
-                                      .filter(([k]) => paramLabels[k])
+                                      .filter(
+                                        ([k]) =>
+                                          paramLabels[k] &&
+                                          !["dateRange", "dateType"].includes(
+                                            k,
+                                          ),
+                                      )
                                       .map(([k, v]) => (
                                         <span key={k}>
                                           {paramLabels[k]} <b>{v}</b>
@@ -924,7 +933,7 @@ function App() {
                                   {activeTask(selected)
                                     ? "正在读取第一批商品"
                                     : selected?.status === "completed"
-                                      ? "这个周期暂无商品数据"
+                                      ? "该周期未返回商品数据"
                                       : "你的下一份市场榜单 从这里开始"}
                                 </h3>
                                 <p>

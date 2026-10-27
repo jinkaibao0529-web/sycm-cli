@@ -15,14 +15,18 @@ export function weekValue(value: string) {
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
   const year = date.getUTCFullYear();
   const week = Math.ceil(
-    ((date.getTime() - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7,
+    ((date.getTime() -
+      Date.parse(`${String(year).padStart(4, "0")}-01-01T00:00:00Z`)) /
+      86400000 +
+      1) /
+      7,
   );
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 function fromWeek(value: string) {
   const match = /^(\d{4})-W(\d{2})$/.exec(value);
   if (!match) return "";
-  const date = new Date(Date.UTC(Number(match[1]), 0, 4));
+  const date = new Date(`${match[1]}-01-04T00:00:00Z`);
   date.setUTCDate(
     date.getUTCDate() -
       ((date.getUTCDay() || 7) - 1) +
@@ -100,13 +104,20 @@ export function PeriodPicker({
   }
   function changeDate(next: string) {
     setAnchor(next);
+    if (!next || !current || !Number.isFinite(Date.parse(next))) {
+      setMessage("请选择有效日期");
+      onChange(null);
+      return;
+    }
     if (
-      !next ||
-      !current ||
-      next < current.min_anchor! ||
-      next > current.max_anchor!
+      (current.min_anchor && next < current.min_anchor) ||
+      (current.max_anchor && next > current.max_anchor)
     ) {
-      setMessage("日期超出已识别范围 在生意参谋打开更早周期可扩展范围");
+      setMessage(
+        current.min_anchor && next < current.min_anchor
+          ? "所选周期超出平台明确提供的查询范围"
+          : "该周期尚未结束 请选择已结束的周期",
+      );
       onChange(null);
       return;
     }
@@ -179,7 +190,7 @@ export function PeriodPicker({
                   disabled ||
                   !anchor ||
                   !Number.isFinite(Date.parse(anchor)) ||
-                  anchor <= current.min_anchor!
+                  (!!current.min_anchor && anchor <= current.min_anchor)
                 }
               >
                 <ChevronLeft size={15} />
@@ -196,7 +207,11 @@ export function PeriodPicker({
                         : "date"
                   }
                   value={inputValue(anchor)}
-                  min={inputValue(current.min_anchor || "")}
+                  min={
+                    current.min_anchor
+                      ? inputValue(current.min_anchor)
+                      : undefined
+                  }
                   max={inputValue(current.max_anchor || "")}
                   disabled={disabled}
                   onChange={(e) =>
@@ -248,7 +263,9 @@ export function PeriodPicker({
       <p className="period-hint" role="status">
         {message ||
           (historical
-            ? `当前可选范围 ${current?.min_anchor} 至 ${current?.max_anchor} · 按已识别有效周期限制`
+            ? current?.min_anchor
+              ? `平台可查询范围 ${current.min_anchor} 至 ${current.end_date || current.max_anchor}`
+              : "可直接选择历史日期 无权限 超出查询期限或无数据时会显示平台实际结果"
             : mode === "realtime"
               ? "实时榜单可能在逐页读取期间变化 导出保留采集开始与结束时间"
               : "按已识别的平台滚动口径计算最新区间")}
